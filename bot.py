@@ -15,30 +15,26 @@ TEMP_RESULTS_KEY = "current_search_results"
 
 
 # ----------------------------------------------------------------------
-# --- دالة البحث داخل القناة (V17.1: تصحيح اسم الدالة) ---
+# --- دالة البحث داخل القناة (V17.3: تثبيت الهيكل) ---
 # ----------------------------------------------------------------------
 async def search_telegram_channel(context, chat_id, query: str):
     
-    # التحقق من إعداد القناة
     if not CHANNEL_ID or CHANNEL_ID == "YOUR_CHANNEL_ID":
         await context.bot.send_message(chat_id=chat_id, text="❌ **خطأ الإعداد:** الرجاء تحديد `CHANNEL_ID` في الكود.")
         return []
 
-    # استخدام search_messages للبحث
     try:
-        # 💥 V17.1: استخدام الدالة المصححة search_for_messages
+        # 💥 V17.3: نستخدم الدالة search_for_messages مع التأكيد على اسم المعامل (query)
         messages = await context.bot.search_for_messages(
             chat_id=CHANNEL_ID,
-            text=query,
+            query=query, 
             limit=5  
         )
         
         # تحويل الرسائل إلى قائمة نتائج مبسطة
         results = []
         for msg in messages:
-            # نتجاهل الرسائل التي ليس لها وثيقة/صورة/كتاب (مثل الرسائل النصية البحتة أو الإشعارات)
             if msg.document or msg.photo or msg.video:
-                # نستخدم message_id لتحديد الرسالة لاحقاً
                 message_text = msg.caption if msg.caption else (msg.text if msg.text else "رسالة بدون عنوان")
                 results.append({
                     "message_id": msg.message_id, 
@@ -51,18 +47,17 @@ async def search_telegram_channel(context, chat_id, query: str):
         if "Bad Request: chat not found" in str(e):
              await context.bot.send_message(chat_id=chat_id, text="❌ خطأ: لم يتم العثور على القناة. تأكد من أن البوت مشرف وأن `CHANNEL_ID` صحيح.")
         elif "Bad Request: message is not modified" in str(e):
-             pass # تجاهل الأخطاء غير الضارة 
+             pass
         else:
             await context.bot.send_message(chat_id=chat_id, text=f"❌ خطأ تيليجرام: {e}")
         return []
     except Exception as e:
-        print(f"Error during Telegram search: {e}")
         await context.bot.send_message(chat_id=chat_id, text=f"⚠️ خطأ عام أثناء البحث: {e}")
         return []
 
 
 # ----------------------------------------------------------------------
-# --- دالة Callback (V17.0: إعادة توجيه الرسالة) ---
+# --- دالة Callback (إعادة توجيه الرسالة) ---
 # ----------------------------------------------------------------------
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -74,7 +69,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             index_str = data.split("|", 1)[1]
             index = int(index_str)
-            # استخراج message_id من الذاكرة المؤقتة
             message_id_to_forward = context.user_data[TEMP_RESULTS_KEY][index]["message_id"]
 
         except Exception:
@@ -84,13 +78,12 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("✅ جارٍ إرسال الكتاب...")
         
         try:
-            # V17.0: إعادة توجيه الرسالة مباشرة من القناة إلى المستخدم
             await context.bot.forward_message(
                 chat_id=chat_id,
-                from_chat_id=CHANNEL_ID, # المصدر هو القناة
-                message_id=message_id_to_forward # الرسالة التي تم العثور عليها
+                from_chat_id=CHANNEL_ID, 
+                message_id=message_id_to_forward 
             )
-            await query.message.delete() # حذف رسالة "جارٍ الإرسال"
+            await query.message.delete()
             
         except Exception as e:
             await context.bot.send_message(chat_id=chat_id, text=f"❌ فشل إعادة توجيه الرسالة. تأكد من أن البوت مشرف في القناة.\nالخطأ: {e}")
@@ -115,7 +108,6 @@ async def search_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(f"🔍 أبحث عن **{query}** داخل المكتبة المحددة...")
     
     try:
-        # V17.1: استخدام دالة البحث الجديدة
         results = await search_telegram_channel(context, update.message.chat_id, query)
 
         if not results:
@@ -125,11 +117,9 @@ async def search_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buttons = []
         text_lines = []
         
-        # حفظ النتائج (Message IDs) في الذاكرة المؤقتة للمستخدم
         context.user_data[TEMP_RESULTS_KEY] = results
         
         for i, item in enumerate(results, start=0):
-            # نستخدم message_id لتحديد الرسالة
             title = item.get("title")
             text_lines.append(f"{i+1}. {title}")
             buttons.append([InlineKeyboardButton(f"📥 تحميل {i+1}", callback_data=f"dl|{i}")])
@@ -144,6 +134,8 @@ def main():
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN is missing in environment variables.")
 
+    # هذا هو السطر الذي كان يسبب الخطأ في الصورة 1000024176.jpg.
+    # الحل يكمن في ضمان تثبيت إصدار 20.x من المكتبة.
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
