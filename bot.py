@@ -8,15 +8,14 @@ from telegram import error as TelegramError
 # --- إعدادات البوت والثوابت ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# 🚨 V17.0: معرف القناة التي سيبحث فيها البوت
-# تم تحديد القناة: https://t.me/books921383837
+# V17.0: معرف القناة
 CHANNEL_ID = "@books921383837" 
 
 TEMP_RESULTS_KEY = "current_search_results" 
 
 
 # ----------------------------------------------------------------------
-# --- دالة البحث داخل القناة (V17.0) ---
+# --- دالة البحث داخل القناة (V17.1: تصحيح اسم الدالة) ---
 # ----------------------------------------------------------------------
 async def search_telegram_channel(context, chat_id, query: str):
     
@@ -27,8 +26,8 @@ async def search_telegram_channel(context, chat_id, query: str):
 
     # استخدام search_messages للبحث
     try:
-        # البحث عن 5 رسائل تحتوي على الكلمة المفتاحية
-        messages = await context.bot.search_messages(
+        # 💥 V17.1: استخدام الدالة المصححة search_for_messages
+        messages = await context.bot.search_for_messages(
             chat_id=CHANNEL_ID,
             text=query,
             limit=5  
@@ -116,7 +115,7 @@ async def search_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(f"🔍 أبحث عن **{query}** داخل المكتبة المحددة...")
     
     try:
-        # V17.0: استخدام دالة البحث الجديدة
+        # V17.1: استخدام دالة البحث الجديدة
         results = await search_telegram_channel(context, update.message.chat_id, query)
 
         if not results:
